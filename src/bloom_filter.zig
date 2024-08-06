@@ -1,20 +1,15 @@
 const std = @import("std");
 
-const BloomFilter = struct {
-    size: u64,
-    hash_count: u64,
+pub const BloomFilter = struct {
+    size: usize,
+    hash_count: usize,
     bit_array: []u8,
     allocator: std.mem.Allocator,
 
-    pub fn init(size: u64, hash_count: u64, allocator: std.mem.Allocator) !BloomFilter {
+    pub fn init(allocator: std.mem.Allocator, size: u64, hash_count: u64) !BloomFilter {
         const bit_array = try allocator.alloc(u8, size);
         @memset(bit_array, 0);
-        return BloomFilter{ 
-          .size = size, 
-          .hash_count = hash_count, 
-          .bit_array = bit_array,
-          .allocator = allocator
-          };
+        return BloomFilter{ .size = size, .hash_count = hash_count, .bit_array = bit_array, .allocator = allocator };
     }
 
     fn fnv1a_hash(self: *BloomFilter, data: []const u8) u64 {
@@ -41,7 +36,7 @@ const BloomFilter = struct {
         const hash1 = self.fnv1a_hash(item);
         const hash2 = self.djb2_hash(item);
 
-        var result = try self.allocator.alloc(usize, self.hash_count);
+        var result = try self.allocator.alloc(u64, self.hash_count);
         for (0..self.hash_count) |i| {
             result[i] = (hash1 + i * hash2) % self.size;
         }
@@ -51,16 +46,16 @@ const BloomFilter = struct {
     pub fn add(self: *BloomFilter, item: []const u8) !void {
         const _hashes = try self.hashes(item);
         defer self.allocator.free(_hashes);
-        for (0.._hashes.len) |hash| {
-            self.bit_array[hash] = 1;
+        for (0..self.hash_count) |hash| {
+            self.bit_array[_hashes[hash]] = 1;
         }
     }
 
     pub fn check(self: *BloomFilter, item: []const u8) !bool {
         const _hashes = try self.hashes(item);
-        defer self.allocator.free(hashes);
-        for (0.._hashes.len) |hash| {
-            if (self.bit_array[hash] == 0) {
+        defer self.allocator.free(_hashes);
+        for (0..self.hash_count) |hash| {
+            if (self.bit_array[_hashes[hash]] == 0) {
                 return false;
             }
         }
@@ -75,14 +70,14 @@ const BloomFilter = struct {
 test "bloom" {
     const allocator = std.testing.allocator;
 
-    var bloom = try BloomFilter.init(1000, 5, allocator);
+    var bloom = try BloomFilter.init(allocator, 1000, 5);
     defer bloom.deinit();
     // Adding items
     try bloom.add("apple");
     try bloom.add("banana");
 
     // Checking membership
-    std.debug.print("apple: {}\n", .{try bloom.check("apple")}); // true
+    std.debug.print("\napple: {}\n", .{try bloom.check("apple")}); // true
     std.debug.print("banana: {}\n", .{try bloom.check("banana")}); // true
     std.debug.print("cherry: {}\n", .{try bloom.check("cherry")}); // false
 }
