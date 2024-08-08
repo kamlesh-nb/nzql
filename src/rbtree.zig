@@ -172,7 +172,7 @@ pub fn traverseTree(self: *RedBlackTree, node: ?*Node) void {
         return;
     self.traverseTree(node.?.left);
     if (node.?.key != 0) {
-        std.debug.print("\nKey: {}, Value: {s}, \n", .{ node.?.key, node.?.value });
+        std.debug.print("\nKey: {}, Value: {s}", .{ node.?.key, node.?.value });
     }
     self.traverseTree(node.?.right);
 }
@@ -204,7 +204,7 @@ test "rb" {
     try tree.insert(60, "shilpa");
     try tree.insert(30, "shilpa");
 
-    if (tree.search(20)) |value| {
+    if (tree.search(60)) |value| {
         std.debug.print("\nFound: {}\n", .{value.key});
     } else {
         std.debug.print("\nNot found\n", .{});
