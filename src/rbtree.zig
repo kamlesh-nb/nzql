@@ -5,7 +5,7 @@ const Color = enum { Red, Black };
 
 const Node = struct {
     key: i32,
-    value: i32,
+    value: []const u8,
     color: Color,
     left: ?*Node,
     right: ?*Node,
@@ -21,15 +21,16 @@ allocator: mem.Allocator,
 pub fn init(allocator: mem.Allocator) !RedBlackTree {
     const z = try allocator.create(Node);
     z.key = 0;
-    z.value = 9000000;
+    z.value = "";
     z.left = null;
     z.right = null;
     return RedBlackTree{ .root = z, .TNULL = z, .allocator = allocator };
 }
 
-pub fn insert(self: *RedBlackTree, key: i32) !void {
+pub fn insert(self: *RedBlackTree, key: i32, value: []const u8) !void {
     const z = try self.allocator.create(Node);
     z.key = key;
+    z.value = value;
     z.color = Color.Red;
     z.left = null;
     z.right = null;
@@ -110,148 +111,6 @@ fn fixInsert(self: *RedBlackTree, node: *Node) void {
     self.root.?.color = .Black;
 }
 
-// pub fn delete(self: *RedBlackTree, key: i32) void {
-//     self.deleteNode(self.root.?, key);
-// }
-
-// fn deleteNode(self: *RedBlackTree, node: *Node, key: i32) void {
-//     var z: *Node = self.TNULL.?;
-//     var x: *Node = undefined;
-//     var y: *Node = undefined;
-
-//     while (node != self.TNULL) {
-//         if (node.key == key) {
-//             z = node;
-//         }
-
-//         if (node.key <= key) {
-//             node = node.right;
-//         } else {
-//             node = node.left;
-//         }
-//     }
-
-//     if (z == self.TNULL) {
-//         std.debug.print("Key not found in the tree", .{});
-//         return;
-//     }
-
-//     y = z;
-//     var y_original_color: Color = y.color;
-//     if (z.left == self.TNULL) {
-//         x = z.right;
-//         rbTransplant(z, z.right);
-//     } else if (z.right == self.TNULL) {
-//         x = z.left;
-//         rbTransplant(z, z.left);
-//     } else {
-//         y = minimum(z.right);
-//         y_original_color = y.color;
-//         x = y.right;
-//         if (y.parent == z) {
-//             x.parent = y;
-//         } else {
-//             rbTransplant(y, y.right);
-//             y.right = z.right;
-//             y.right.?.parent = y;
-//         }
-
-//         rbTransplant(z, y);
-//         y.left = z.left;
-//         y.left.?.parent = y;
-//         y.color = z.color;
-//     }
-//     self.allocator.destroy(z);
-//     if (y_original_color == 0) {
-//         deleteFix(x);
-//     }
-// }
-
-// fn deleteFix(self: *RedBlackTree, x: *Node) void {
-//     var s: *Node = undefined;
-//     while (x != self.root and x.color == .Black) {
-//         if (x == x.parent.?.left) {
-//             s = x.parent.?.right;
-//             if (s.color == .Red) {
-//                 s.color = .Black;
-//                 x.parent.?.color = .Red;
-//                 leftRotate(x.parent);
-//                 s = x.parent.?.right;
-//             }
-
-//             if (s.left.?.color == .Black and s.right.?.color == .Black) {
-//                 s.color = .Red;
-//                 x = x.parent;
-//             } else {
-//                 if (s.right.?.color == .Black) {
-//                     s.left.?.color = .Black;
-//                     s.color = .Red;
-//                     rightRotate(s);
-//                     s = x.parent.?.right;
-//                 }
-
-//                 s.color = x.parent.?.color;
-//                 x.parent.?.color = .Black;
-//                 s.right.?.color = .Black;
-//                 leftRotate(x.parent);
-//                 x = self.root;
-//             }
-//         } else {
-//             s = x.parent.?.left;
-//             if (s.color == .Red) {
-//                 s.color = .Black;
-//                 x.parent.?.color = .Red;
-//                 rightRotate(x.parent);
-//                 s = x.parent.?.left;
-//             }
-
-//             if (s.right.?.color == .Black and s.right.?.color == .Black) {
-//                 s.color = .Red;
-//                 x = x.parent;
-//             } else {
-//                 if (s.left.?.color == .Black) {
-//                     s.right.?.color = .Black;
-//                     s.color = .Red;
-//                     leftRotate(s);
-//                     s = x.parent.?.left;
-//                 }
-
-//                 s.color = x.parent.?.color;
-//                 x.parent.?.color = .Black;
-//                 s.left.color = .Black;
-//                 rightRotate(x.parent);
-//                 x = self.root;
-//             }
-//         }
-//     }
-//     x.color = .Black;
-// }
-
-// fn rbTransplant(self: *RedBlackTree, u: *Node, v: *Node) void {
-//     if (u.parent == null) {
-//         self.root = v;
-//     } else if (u == u.parent.?.left) {
-//         u.parent.?.left = v;
-//     } else {
-//         u.parent.?.right = v;
-//     }
-//     v.parent = u.parent;
-// }
-
-// fn minimum(self: *RedBlackTree, node: *Node) *Node {
-//     while (node.left != self.TNULL) {
-//         node = node.left;
-//     }
-//     return node;
-// }
-
-// fn maximum(self: *RedBlackTree, node: *Node) *Node {
-//     while (node.right != self.TNULL) {
-//         node = node.right;
-//     }
-//     return node;
-// }
-
 fn searchNode(self: *RedBlackTree, key: i32) ?*Node {
     var current = self.root;
     while (current) |c| {
@@ -308,6 +167,16 @@ fn rightRotate(self: *RedBlackTree, x: *Node) void {
     x.parent = y;
 }
 
+pub fn traverseTree(self: *RedBlackTree, node: ?*Node) void {
+    if (node == null)
+        return;
+    self.traverseTree(node.?.left);
+    if (node.?.key != 0) {
+        std.debug.print("\nKey: {}, Value: {s}, \n", .{ node.?.key, node.?.value });
+    }
+    self.traverseTree(node.?.right);
+}
+
 fn deinitNode(self: *RedBlackTree, node: ?*Node) void {
     if (node) |n| {
         if (n.left != null) {
@@ -328,20 +197,18 @@ test "rb" {
     var tree = try RedBlackTree.init(std.testing.allocator);
     defer tree.deinit();
 
-    try tree.insert(30);
-    try tree.insert(200);
-    try tree.insert(300);
+    try tree.insert(40, "kamlesh");
+    try tree.insert(10, "kamlesh");
+    try tree.insert(50, "mehul");
+    try tree.insert(20, "mehul");
+    try tree.insert(60, "shilpa");
+    try tree.insert(30, "shilpa");
 
-    if (tree.search(200)) |value| {
-        std.debug.print("\nFound: {}\n", .{value.key});
-        value.key = 800;
-    } else {
-        std.debug.print("\nNot found\n", .{});
-    }
-     
-    if (tree.search(200)) |value| {
+    if (tree.search(20)) |value| {
         std.debug.print("\nFound: {}\n", .{value.key});
     } else {
         std.debug.print("\nNot found\n", .{});
     }
+
+    tree.traverseTree(tree.root);
 }
