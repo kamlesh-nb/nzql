@@ -1,8 +1,8 @@
 const std = @import("std");
 
 pub const BloomFilter = struct {
-    size: usize,
-    hash_count: usize,
+    size: u64,
+    hash_count: u64,
     bit_array: []u8,
     allocator: std.mem.Allocator,
 
@@ -81,3 +81,18 @@ test "bloom" {
     std.debug.print("banana: {}\n", .{try bloom.check("banana")}); // true
     std.debug.print("cherry: {}\n", .{try bloom.check("cherry")}); // false
 }
+
+test "has-test" {
+    const allocator = std.testing.allocator;
+
+    var bloom = try BloomFilter.init(allocator, 1000, 5);
+    defer bloom.deinit();
+
+    const d = bloom.fnv1a_hash("a27ac50274524eaa");
+    std.debug.print("\n{d}\n", .{d});
+}
+
+//2998916403606747793
+//2998916403606747793
+//4378059445348249422
+//13476040837531404128

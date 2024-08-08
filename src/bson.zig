@@ -1,8 +1,12 @@
 const std = @import("std");
+const uuid = @import("uuid.zig");
 
 const BsonTypes = enum(u8) {
     Double = 0x01,
     String = 0x02,
+    Document = 0x03,
+    Array = 0x04,
+    ObjectId = 0x07,
     Bool = 0x08,
     Int32 = 0x10,
     Int64 = 0x12,
@@ -13,6 +17,7 @@ const BsonTypes = enum(u8) {
 const Bson = @This();
 
 buffer: []u8,
+objid: []u8,
 length: usize = 4,
 capacity: usize,
 pos: usize = 0,
@@ -21,6 +26,7 @@ allocator: *std.mem.Allocator,
 pub fn init(allocator: *std.mem.Allocator, initial_capacity: usize) !Bson {
     return Bson{
         .buffer = try allocator.alloc(u8, initial_capacity),
+        .objid = try allocator.alloc(u8, 16),
         .capacity = initial_capacity,
         .allocator = allocator,
     };
@@ -28,6 +34,7 @@ pub fn init(allocator: *std.mem.Allocator, initial_capacity: usize) !Bson {
 
 pub fn deinit(self: *Bson) void {
     self.allocator.free(self.buffer);
+    self.allocator.free(self.objid);
 }
 
 fn resize(self: *Bson, new_capacity: usize) !void {
@@ -298,12 +305,23 @@ pub fn ser(self: *Bson, value: anytype) ![]const u8 {
                 }
             },
             .Pointer => {
-                try self.putFieldType(2);
-                try self.putBytes(field.name[0..]);
-                try self.putBytes("\x00"[0..]);
-                const len: u32 = @intCast(@field(value, field.name).len);
-                try self.putU32(len);
-                try self.putBytes(@field(value, field.name));
+                if (std.mem.eql(u8, field.name, "id")) {
+                    try self.putFieldType(7);
+                    try self.putBytes(field.name[0..]);
+                    try self.putBytes("\x00"[0..]);
+                    var buf: [16:0]u8 = undefined;
+                    uuid.docId(&buf);
+                    const len: u32 = @intCast(buf.len);
+                    try self.putU32(len);
+                    try self.putBytes(buf[0..]);
+                } else {
+                    try self.putFieldType(2);
+                    try self.putBytes(field.name[0..]);
+                    try self.putBytes("\x00"[0..]);
+                    const len: u32 = @intCast(@field(value, field.name).len);
+                    try self.putU32(len);
+                    try self.putBytes(@field(value, field.name));
+                }
             },
             .Bool => {
                 try self.putFieldType(8);
@@ -315,6 +333,8 @@ pub fn ser(self: *Bson, value: anytype) ![]const u8 {
                     try self.putBytes("\x00"[0..]);
                 }
             },
+            .Struct => {},
+            .Array => {},
             else => {},
         }
     }
@@ -332,7 +352,13 @@ pub fn de(self: *Bson, comptime T: type) !T {
         const fieldType: BsonTypes = @enumFromInt(self.getFieldType());
 
         switch (fieldType) {
-            .String => {
+            .Array => {
+
+            },
+            .Document => {
+
+            },
+            .String, .ObjectId => {
                 const endIndex = std.mem.indexOf(u8, self.buffer[self.pos..], "\x00");
                 if (endIndex) |ei| {
                     const fname: []u8 = self.getBytes(ei);
@@ -442,7 +468,16 @@ pub fn de(self: *Bson, comptime T: type) !T {
     return obj;
 }
 
+test "object-id" {
+    var allocator = std.testing.allocator;
+    var bson = try Bson.init(&allocator, 32);
+    defer bson.deinit();
+    const x = bson.getObjectId(8);
+    std.debug.print("Object ID: \n{s}\n", .{x});
+}
+
 const Person = struct {
+    id: []const u8 = undefined,
     name: []const u8 = undefined,
     age: i32 = undefined,
     salary: i64 = undefined,
@@ -492,5 +527,5 @@ test "from-bson" {
     const len = try file.readAll(&buff);
     try bson.putFromFile(buff[0..len]);
     const _p = try bson.de(Person);
-    std.debug.print("\nfrom bson:\nTax: {},\nName: {s},\nIsWorking: {?},\nSalary: {},\nAge: {d}\n", .{ _p.tax, _p.name, _p.is_working, _p.salary, _p.age });
+    std.debug.print("\nfrom bson:\nObjId: {s},\nTax: {},\nName: {s},\nIsWorking: {?},\nSalary: {},\nAge: {d}\n", .{ _p.id, _p.tax, _p.name, _p.is_working, _p.salary, _p.age });
 }
